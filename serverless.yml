@@ -1,0 +1,83 @@
+service: serverless-crud-api
+
+frameworkVersion: '3'
+
+plugins:
+  - serverless-plugin-typescript
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-2'}
+  environment:
+    DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource: 
+            - "Fn::GetAtt": [ DynamoDBTable, Arn ]
+            - "Fn::Join": ["/", ["Fn::GetAtt": [ DynamoDBTable, Arn ], "index/*"]]
+
+functions:
+  createItem:
+    handler: src/handlers/create.handler
+    events:
+      - http:
+          path: items
+          method: post
+          cors: true
+
+  getItem:
+    handler: src/handlers/get.handler
+    events:
+      - http:
+          path: items/{id}
+          method: get
+          cors: true
+
+  listItems:
+    handler: src/handlers/list.handler
+    events:
+      - http:
+          path: items
+          method: get
+          cors: true
+
+  updateItem:
+    handler: src/handlers/update.handler
+    events:
+      - http:
+          path: items/{id}
+          method: put
+          cors: true
+
+  deleteItem:
+    handler: src/handlers/delete.handler
+    events:
+      - http:
+          path: items/{id}
+          method: delete
+          cors: true
+
+resources:
+  Resources:
+    DynamoDBTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST 
